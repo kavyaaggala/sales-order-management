@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPA Sale Orders</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color, white);
+            color: var(--text-color, black);
+        }
+        .hidden {
+            display: none;
+        }
+        .dark-theme {
+            --bg-color: #333;
+            --text-color: #fff;
+        }
+        .login-page, .orders-page {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+        }
+        .login-page input, .login-page button, .modal-content input, .modal-content button {
+            margin: 5px 0;
+        }
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .order-table {
+            width: 80%;
+            border-collapse: collapse;
+        }
+        .order-table th, .order-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div class="login-page" id="loginPage">
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <!-- Orders Page -->
+    <div class="orders-page hidden" id="ordersPage">
+        <div>
+            <label>
+                Dark Theme:
+                <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
+            </label>
+        </div>
+        <div class="tabs">
+            <button onclick="showTab('activeOrders')">Active Sale Orders</button>
+            <button onclick="showTab('completedOrders')">Completed Sale Orders</button>
+        </div>
+        <div class="tab-content" id="activeOrders">
+            <h3>Active Sale Orders</h3>
+            <button onclick="showModal('createOrderModal')">+ Sale Order</button>
+            <table class="order-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="activeOrdersTable">
+                    <!-- Active Orders will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="tab-content" id="completedOrders">
+            <h3>Completed Sale Orders</h3>
+            <table class="order-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="completedOrdersTable">
+                    <!-- Completed Orders will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="createOrderModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('createOrderModal')">&times;</span>
+            <h2>Create Sale Order</h2>
+            <input type="text" id="createOrderProduct" placeholder="Product">
+            <input type="number" id="createOrderQuantity" placeholder="Quantity">
+            <button onclick="createOrder()">Create</button>
+        </div>
+    </div>
+
+    <div id="editOrderModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editOrderModal')">&times;</span>
+            <h2>Edit Sale Order</h2>
+            <input type="hidden" id="editOrderId">
+            <input type="text" id="editOrderProduct" placeholder="Product">
+            <input type="number" id="editOrderQuantity" placeholder="Quantity">
+            <button onclick="saveOrder()">Save</button>
+        </div>
+    </div>
+
+    <div id="viewOrderModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('viewOrderModal')">&times;</span>
+            <h2>View Sale Order</h2>
+            <input type="hidden" id="viewOrderId">
+            <input type="text" id="viewOrderProduct" placeholder="Product" readonly>
+            <input type="number" id="viewOrderQuantity" placeholder="Quantity" readonly>
+        </div>
+    </div>
+
+    <script>
+        const users = [{ username: 'admin', password: 'password' }];
+        const activeOrders = [
+            { id: 1, product: 'Product 1', quantity: 10 },
+            { id: 2, product: 'Product 2', quantity: 5 }
+        ];
+        const completedOrders = [
+            { id: 3, product: 'Product 3', quantity: 2 },
+            { id: 4, product: 'Product 4', quantity: 8 }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOrders();
+            const theme = localStorage.getItem('theme');
+            if (theme === 'dark') {
+                document.body.classList.add('dark-theme');
+                document.getElementById('themeToggle').checked = true;
+            }
+        });
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const user = users.find(user => user.username === username && user.password === password);
+            if (user) {
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('ordersPage').classList.remove('hidden');
+            } else {
+                alert('Invalid username or password');
+            }
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+            localStorage.setItem('theme', theme);
+        }
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function loadOrders() {
+            const activeOrdersTable = document.getElementById('activeOrdersTable');
+            activeOrdersTable.innerHTML = '';
+            activeOrders.forEach(order => {
+                activeOrdersTable.innerHTML += `
+                    <tr>
+                        <td>${order.id}</td>
+                        <td>${order.product}</td>
+                        <td>${order.quantity}</td>
+                        <td><button onclick="showEditModal(${order.id})">...</button></td>
+                    </tr>
+                `;
+            });
+
+            const completedOrdersTable = document.getElementById('completedOrdersTable');
+            completedOrdersTable.innerHTML = '';
+            completedOrders.forEach(order => {
+                completedOrdersTable.innerHTML += `
+                    <tr>
+                        <td>${order.id}</td>
+                        <td>${order.product}</td>
+                        <td>${order.quantity}</td>
+                        <td><button onclick="showViewModal(${order.id})">...</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function createOrder() {
+            const product = document.getElementById('createOrderProduct').value;
+            const quantity = document.getElementById('createOrderQuantity').value;
+            const newOrder = { id: Date.now(), product, quantity };
+            activeOrders.push(newOrder);
+            loadOrders();
+            closeModal('createOrderModal');
+        }
+
+        function showEditModal(orderId) {
+            const order = activeOrders.find(o => o.id === orderId);
+            document.getElementById('editOrderId').value = order.id;
+            document.getElementById('editOrderProduct').value = order.product;
+            document.getElementById('editOrderQuantity').value = order.quantity;
+            showModal('editOrderModal');
+        }
+
+        function saveOrder() {
+            const id = document.getElementById('editOrderId').value;
+            const product = document.getElementById('editOrderProduct').value;
+            const quantity = document.getElementById('editOrderQuantity').value;
+            const orderIndex = activeOrders.findIndex(o => o.id == id);
+            activeOrders[orderIndex] = { id, product, quantity };
+            loadOrders();
+            closeModal('editOrderModal');
+        }
+
+        function showViewModal(orderId) {
+            const order = completedOrders.find(o => o.id === orderId);
+            document.getElementById('viewOrderId').value = order.id;
+            document.getElementById('viewOrderProduct').value = order.product;
+            document.getElementById('viewOrderQuantity').value = order.quantity;
+            showModal('viewOrderModal');
+        }
+    </script>
+</body>
+</html>
